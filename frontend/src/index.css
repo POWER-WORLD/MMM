@@ -1,0 +1,74 @@
+@import "tailwindcss";
+
+:root {
+  --bg-primary: #0a0d14;
+  --bg-card: #111520;
+  --bg-card-hover: #161c2a;
+  --border-color: #1e2638;
+  --border-subtle: #182030;
+  --gold-accent: #f59e0b;
+  --call-green: #10b981;
+  --put-red: #ef4444;
+  --neutral-gray: #64748b;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background-color: var(--bg-primary);
+  color: #e2e8f0;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  min-height: 100vh;
+}
+
+code, .font-mono {
+  font-family: 'JetBrains Mono', monospace;
+}
+
+/* Custom scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #0a0d14;
+}
+::-webkit-scrollbar-thumb {
+  background: #1e293b;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #334155;
+}
+
+@keyframes pulseGlowGreen {
+  0%, 100% { box-shadow: 0 0 15px rgba(16, 185, 129, 0.2); }
+  50% { box-shadow: 0 0 25px rgba(16, 185, 129, 0.4); }
+}
+
+@keyframes pulseGlowRed {
+  0%, 100% { box-shadow: 0 0 15px rgba(239, 68, 68, 0.2); }
+  50% { box-shadow: 0 0 25px rgba(239, 68, 68, 0.4); }
+}
+
+@keyframes flashPriceUp {
+  0% { color: #10b981; transform: scale(1.02); }
+  100% { color: #ffffff; transform: scale(1); }
+}
+
+@keyframes flashPriceDown {
+  0% { color: #ef4444; transform: scale(1.02); }
+  100% { color: #ffffff; transform: scale(1); }
+}
+
+.price-flash-up {
+  animation: flashPriceUp 600ms ease-out;
+}
+
+.price-flash-down {
+  animation: flashPriceDown 600ms ease-out;
+}

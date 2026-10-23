@@ -1,0 +1,216 @@
+# ==============================================================================
+# Gold Trading Analysis Platform - Git Ignore Rules
+# Global Standardized Git Ignore Specification
+# ==============================================================================
+
+# ==============================================================================
+# 1. Python & Bytecode Cache
+# ==============================================================================
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.pyd
+*.dll
+*.dylib
+
+# Distribution, Packaging & Build
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# PyInstaller / Freezing
+*.manifest
+*.spec
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# ==============================================================================
+# 2. Python Virtual Environments
+# ==============================================================================
+venv/
+venv*/
+.venv/
+.venv*/
+env/
+env*/
+.env/
+ENV/
+env.bak/
+venv.bak/
+
+# ==============================================================================
+# 3. Testing, Quality Assurance & Coverage
+# ==============================================================================
+.pytest_cache/
+.tox/
+.nox/
+.coverage
+.coverage.*
+htmlcov/
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+.cache
+
+# ==============================================================================
+# 4. Type Checking, Linters & Static Analysis
+# ==============================================================================
+.mypy_cache/
+.dmypy.json
+dmypy.json
+.pyre/
+.pytype/
+.ruff_cache/
+
+# ==============================================================================
+# 5. Node.js, Web Frontend & Bundler Artifacts
+# ==============================================================================
+# Node dependencies
+node_modules/
+jspm_packages/
+web_modules/
+
+# Package manager logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+.pnpm-debug.log*
+
+# Frontend build outputs (Vite output and SSR bundles)
+frontend/dist/
+frontend/dist-ssr/
+dashboard/static/dist/
+dist-ssr/
+
+# Local frontend environment & lock caches
+*.local
+.npm/
+.eslintcache
+.stylelintcache
+.vite/
+.turbo/
+
+# ==============================================================================
+# 6. Application Logs & Runtime Outputs
+# ==============================================================================
+logs/*
+!logs/.gitkeep
+*.log
+*.pid
+
+# ==============================================================================
+# 7. Environment Variables, API Keys & Credentials
+# ==============================================================================
+.env
+.env.*
+*.env
+!.env.example
+!.env.template
+!.env.sample
+
+# Private keys, certificates & tokens
+*.pem
+*.key
+*.cert
+*.crt
+*.pfx
+*.p12
+*.pub
+secrets/
+credentials.json
+
+# ==============================================================================
+# 8. Local Databases & Persistence Stores
+# ==============================================================================
+*.db
+*.sqlite
+*.sqlite3
+*.db-journal
+*.db-wal
+*.db-shm
+
+# ==============================================================================
+# 9. Operating System Artifacts
+# ==============================================================================
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+.Spotlight-V100
+.Trashes
+
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+[Dd]esktop.ini
+$RECYCLE.BIN/
+*.stackdump
+*.lnk
+
+# Linux
+*~
+.fuse_hidden*
+.directory
+.Trash-*
+.nfs*
+
+# ==============================================================================
+# 10. IDEs, Editors & Developer Tooling
+# ==============================================================================
+# Visual Studio Code (preserve team shared configs if desired)
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+*.code-workspace
+
+# JetBrains IDEs (PyCharm, WebStorm, IntelliJ IDEA)
+.idea/
+*.iws
+*.iml
+*.ipr
+
+# Sublime Text
+*.sublime-workspace
+*.sublime-project
+
+# Vim / Emacs
+*.swp
+*.swo
+[._]*.s[a-v][a-z]
+[._]*.sw[a-p]
+[._]s[a-rt-v][a-z]
+[._]ss[a-gi-z]
+[._]sw[a-p]
+\#*\#
+.\#*
+
+# Jupyter Notebook & IPython
+.ipynb_checkpoints
+profile_default/
+ipython_config.py

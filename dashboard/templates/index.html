@@ -1,0 +1,1572 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gold Trading Platform — Live Dashboard</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.5/socket.io.min.js"></script>
+    <script src="https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.production.js"></script>
+    <style>
+        /* ================================================================
+           GLOBAL RESET & VARIABLES
+           ================================================================ */
+        *, *::before, *::after {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --color-background-primary: #0d1117;
+            --color-background-card: #161b22;
+            --color-background-card-hover: #1c2129;
+            --color-background-input: #0d1117;
+            --color-border-primary: #30363d;
+            --color-border-subtle: #21262d;
+            --color-accent-gold: #FFD700;
+            --color-accent-gold-dim: rgba(255, 215, 0, 0.15);
+            --color-accent-gold-glow: rgba(255, 215, 0, 0.3);
+            --color-text-primary: #e6edf3;
+            --color-text-secondary: #8b949e;
+            --color-text-muted: #484f58;
+            --color-signal-call: #3fb950;
+            --color-signal-call-bg: rgba(63, 185, 80, 0.12);
+            --color-signal-put: #f85149;
+            --color-signal-put-bg: rgba(248, 81, 73, 0.12);
+            --color-signal-neutral: #8b949e;
+            --color-signal-neutral-bg: rgba(139, 148, 158, 0.12);
+            --color-win: #3fb950;
+            --color-loss: #f85149;
+            --color-pending: #d29922;
+            --border-radius-small: 6px;
+            --border-radius-medium: 10px;
+            --border-radius-large: 14px;
+            --font-family-primary: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.3), 0 0 0 1px var(--color-border-primary);
+            --shadow-card-glow: 0 0 20px rgba(255, 215, 0, 0.05);
+            --transition-fast: 150ms ease;
+            --transition-normal: 250ms ease;
+        }
+
+        html, body {
+            height: 100%;
+            overflow: hidden;
+        }
+
+        body {
+            font-family: var(--font-family-primary);
+            background-color: var(--color-background-primary);
+            color: var(--color-text-primary);
+            line-height: 1.5;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+
+        /* ================================================================
+           LAYOUT GRID
+           ================================================================ */
+        .dashboard-layout {
+            display: grid;
+            grid-template-rows: 56px 1fr auto;
+            grid-template-columns: 1fr 420px;
+            grid-template-areas:
+                "top-bar top-bar"
+                "chart-area sidebar"
+                "bottom-section bottom-section";
+            height: 100vh;
+            gap: 0;
+        }
+
+        /* ================================================================
+           TOP BAR
+           ================================================================ */
+        .top-bar {
+            grid-area: top-bar;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 20px;
+            background-color: var(--color-background-card);
+            border-bottom: 1px solid var(--color-border-primary);
+            z-index: 100;
+        }
+
+        .top-bar__brand {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .top-bar__logo-icon {
+            width: 28px;
+            height: 28px;
+            border-radius: 6px;
+            background: linear-gradient(135deg, var(--color-accent-gold), #b8860b);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            font-weight: 800;
+            color: #0d1117;
+        }
+
+        .top-bar__title {
+            font-size: 15px;
+            font-weight: 700;
+            color: var(--color-text-primary);
+            letter-spacing: -0.3px;
+        }
+
+        .top-bar__subtitle {
+            font-size: 11px;
+            color: var(--color-text-secondary);
+            font-weight: 400;
+            margin-left: 8px;
+        }
+
+        .top-bar__price-section {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .live-price-display {
+            display: flex;
+            align-items: baseline;
+            gap: 6px;
+        }
+
+        .live-price-display__label {
+            font-size: 11px;
+            font-weight: 500;
+            color: var(--color-text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+        }
+
+        .live-price-display__value {
+            font-size: 26px;
+            font-weight: 800;
+            color: var(--color-accent-gold);
+            font-variant-numeric: tabular-nums;
+            letter-spacing: -0.5px;
+            transition: color var(--transition-fast);
+        }
+
+        .live-price-display__value--flash-up {
+            color: var(--color-signal-call);
+            text-shadow: 0 0 12px rgba(63, 185, 80, 0.5);
+        }
+
+        .live-price-display__value--flash-down {
+            color: var(--color-signal-put);
+            text-shadow: 0 0 12px rgba(248, 81, 73, 0.5);
+        }
+
+        .live-price-display__currency {
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--color-text-secondary);
+        }
+
+        .connection-status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .connection-status-indicator--connected {
+            background: rgba(63, 185, 80, 0.12);
+            color: var(--color-signal-call);
+        }
+
+        .connection-status-indicator--disconnected {
+            background: rgba(248, 81, 73, 0.12);
+            color: var(--color-signal-put);
+        }
+
+        .connection-status-indicator__dot {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: currentColor;
+            animation: pulse-glow 2s ease-in-out infinite;
+        }
+
+        @keyframes pulse-glow {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.4; }
+        }
+
+        /* ================================================================
+           CHART AREA
+           ================================================================ */
+        .chart-area {
+            grid-area: chart-area;
+            padding: 12px;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .chart-container {
+            flex: 1;
+            background: var(--color-background-card);
+            border: 1px solid var(--color-border-primary);
+            border-radius: var(--border-radius-medium);
+            overflow: hidden;
+            position: relative;
+            min-height: 0;
+        }
+
+        .chart-container__header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px 14px;
+            border-bottom: 1px solid var(--color-border-subtle);
+        }
+
+        .chart-container__title {
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--color-text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.6px;
+        }
+
+        .chart-container__timeframe {
+            font-size: 11px;
+            color: var(--color-text-muted);
+            padding: 3px 8px;
+            background: var(--color-background-input);
+            border-radius: 4px;
+            border: 1px solid var(--color-border-subtle);
+        }
+
+        .chart-container__body {
+            position: absolute;
+            top: 40px;
+            left: 0;
+            right: 0;
+            bottom: 0;
+        }
+
+        /* ================================================================
+           SIDEBAR
+           ================================================================ */
+        .sidebar {
+            grid-area: sidebar;
+            background: var(--color-background-card);
+            border-left: 1px solid var(--color-border-primary);
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+            overflow-x: hidden;
+        }
+
+        .sidebar::-webkit-scrollbar {
+            width: 4px;
+        }
+
+        .sidebar::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        .sidebar::-webkit-scrollbar-thumb {
+            background: var(--color-border-primary);
+            border-radius: 2px;
+        }
+
+        .sidebar__section {
+            padding: 14px;
+            border-bottom: 1px solid var(--color-border-primary);
+        }
+
+        .sidebar__section:last-child {
+            border-bottom: none;
+        }
+
+        .section-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 10px;
+        }
+
+        .section-header__title {
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            color: var(--color-text-secondary);
+        }
+
+        .section-header__badge {
+            font-size: 10px;
+            font-weight: 600;
+            padding: 2px 7px;
+            border-radius: 10px;
+            background: var(--color-accent-gold-dim);
+            color: var(--color-accent-gold);
+        }
+
+        /* Agent Signal Cards */
+        .agent-signals-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 6px;
+        }
+
+        .agent-signal-card {
+            background: var(--color-background-primary);
+            border: 1px solid var(--color-border-subtle);
+            border-radius: var(--border-radius-small);
+            padding: 8px 10px;
+            transition: border-color var(--transition-fast), background var(--transition-fast);
+        }
+
+        .agent-signal-card:hover {
+            border-color: var(--color-border-primary);
+            background: var(--color-background-card-hover);
+        }
+
+        .agent-signal-card--call {
+            border-left: 3px solid var(--color-signal-call);
+        }
+
+        .agent-signal-card--put {
+            border-left: 3px solid var(--color-signal-put);
+        }
+
+        .agent-signal-card--neutral {
+            border-left: 3px solid var(--color-signal-neutral);
+        }
+
+        .agent-signal-card__header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 5px;
+        }
+
+        .agent-signal-card__name {
+            font-size: 10px;
+            font-weight: 600;
+            color: var(--color-text-primary);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 100px;
+        }
+
+        .agent-signal-card__direction {
+            display: flex;
+            align-items: center;
+            gap: 3px;
+            font-size: 9px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            padding: 1px 5px;
+            border-radius: 3px;
+        }
+
+        .agent-signal-card__direction--call {
+            color: var(--color-signal-call);
+            background: var(--color-signal-call-bg);
+        }
+
+        .agent-signal-card__direction--put {
+            color: var(--color-signal-put);
+            background: var(--color-signal-put-bg);
+        }
+
+        .agent-signal-card__direction--neutral {
+            color: var(--color-signal-neutral);
+            background: var(--color-signal-neutral-bg);
+        }
+
+        .agent-signal-card__direction-dot {
+            width: 5px;
+            height: 5px;
+            border-radius: 50%;
+            background: currentColor;
+        }
+
+        .agent-signal-card__confidence-bar {
+            height: 3px;
+            background: var(--color-border-subtle);
+            border-radius: 2px;
+            margin-bottom: 4px;
+            overflow: hidden;
+        }
+
+        .agent-signal-card__confidence-fill {
+            height: 100%;
+            border-radius: 2px;
+            transition: width var(--transition-normal);
+        }
+
+        .agent-signal-card__confidence-fill--call {
+            background: linear-gradient(90deg, var(--color-signal-call), #2ea043);
+        }
+
+        .agent-signal-card__confidence-fill--put {
+            background: linear-gradient(90deg, var(--color-signal-put), #da3633);
+        }
+
+        .agent-signal-card__confidence-fill--neutral {
+            background: linear-gradient(90deg, var(--color-signal-neutral), #6e7681);
+        }
+
+        .agent-signal-card__meta {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .agent-signal-card__confidence-text {
+            font-size: 9px;
+            font-weight: 600;
+            color: var(--color-text-muted);
+        }
+
+        .agent-signal-card__success-rate {
+            font-size: 9px;
+            font-weight: 500;
+            color: var(--color-text-muted);
+        }
+
+        /* Consensus Display */
+        .consensus-display {
+            background: var(--color-background-primary);
+            border: 1px solid var(--color-border-subtle);
+            border-radius: var(--border-radius-medium);
+            padding: 16px;
+            text-align: center;
+            transition: border-color var(--transition-normal);
+        }
+
+        .consensus-display--call {
+            border-color: var(--color-signal-call);
+            box-shadow: 0 0 20px rgba(63, 185, 80, 0.08);
+        }
+
+        .consensus-display--put {
+            border-color: var(--color-signal-put);
+            box-shadow: 0 0 20px rgba(248, 81, 73, 0.08);
+        }
+
+        .consensus-display__label {
+            font-size: 10px;
+            font-weight: 600;
+            color: var(--color-text-muted);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 6px;
+        }
+
+        .consensus-display__direction {
+            font-size: 28px;
+            font-weight: 800;
+            letter-spacing: 2px;
+            margin-bottom: 4px;
+        }
+
+        .consensus-display__direction--call {
+            color: var(--color-signal-call);
+        }
+
+        .consensus-display__direction--put {
+            color: var(--color-signal-put);
+        }
+
+        .consensus-display__direction--waiting {
+            color: var(--color-text-muted);
+        }
+
+        .consensus-display__meta {
+            font-size: 11px;
+            color: var(--color-text-secondary);
+        }
+
+        .consensus-display__confidence-value {
+            font-weight: 700;
+            color: var(--color-accent-gold);
+        }
+
+        /* Active Trade Card */
+        .active-trade-card {
+            background: var(--color-background-primary);
+            border: 1px solid var(--color-border-subtle);
+            border-radius: var(--border-radius-small);
+            padding: 12px;
+        }
+
+        .active-trade-card--active {
+            border-color: var(--color-pending);
+            box-shadow: 0 0 15px rgba(210, 153, 34, 0.1);
+        }
+
+        .active-trade-card__empty {
+            text-align: center;
+            color: var(--color-text-muted);
+            font-size: 12px;
+            padding: 8px 0;
+        }
+
+        .active-trade-card__row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 4px;
+        }
+
+        .active-trade-card__row:last-child {
+            margin-bottom: 0;
+        }
+
+        .active-trade-card__label {
+            font-size: 10px;
+            color: var(--color-text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .active-trade-card__value {
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--color-text-primary);
+            font-variant-numeric: tabular-nums;
+        }
+
+        .active-trade-card__countdown {
+            font-size: 18px;
+            font-weight: 800;
+            color: var(--color-pending);
+            text-align: center;
+            padding: 6px 0;
+            font-variant-numeric: tabular-nums;
+        }
+
+        /* ================================================================
+           BOTTOM SECTION
+           ================================================================ */
+        .bottom-section {
+            grid-area: bottom-section;
+            background: var(--color-background-card);
+            border-top: 1px solid var(--color-border-primary);
+            display: flex;
+            flex-direction: column;
+            max-height: 240px;
+        }
+
+        /* Performance Stats Row */
+        .performance-stats-row {
+            display: flex;
+            align-items: stretch;
+            gap: 0;
+            border-bottom: 1px solid var(--color-border-primary);
+            flex-shrink: 0;
+        }
+
+        .performance-stat-item {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 10px 12px;
+            border-right: 1px solid var(--color-border-subtle);
+            transition: background var(--transition-fast);
+        }
+
+        .performance-stat-item:last-child {
+            border-right: none;
+        }
+
+        .performance-stat-item:hover {
+            background: var(--color-background-card-hover);
+        }
+
+        .performance-stat-item__label {
+            font-size: 9px;
+            font-weight: 600;
+            color: var(--color-text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            margin-bottom: 3px;
+        }
+
+        .performance-stat-item__value {
+            font-size: 18px;
+            font-weight: 800;
+            color: var(--color-text-primary);
+            font-variant-numeric: tabular-nums;
+            letter-spacing: -0.3px;
+        }
+
+        .performance-stat-item__value--positive {
+            color: var(--color-win);
+        }
+
+        .performance-stat-item__value--negative {
+            color: var(--color-loss);
+        }
+
+        .performance-stat-item__value--gold {
+            color: var(--color-accent-gold);
+        }
+
+        /* Recent Trades Table */
+        .recent-trades-container {
+            flex: 1;
+            overflow-y: auto;
+            min-height: 0;
+        }
+
+        .recent-trades-container::-webkit-scrollbar {
+            width: 4px;
+        }
+
+        .recent-trades-container::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        .recent-trades-container::-webkit-scrollbar-thumb {
+            background: var(--color-border-primary);
+            border-radius: 2px;
+        }
+
+        .recent-trades-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 11px;
+        }
+
+        .recent-trades-table thead {
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+
+        .recent-trades-table th {
+            background: var(--color-background-primary);
+            color: var(--color-text-muted);
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.6px;
+            font-size: 9px;
+            padding: 7px 14px;
+            text-align: left;
+            border-bottom: 1px solid var(--color-border-primary);
+        }
+
+        .recent-trades-table td {
+            padding: 6px 14px;
+            color: var(--color-text-secondary);
+            border-bottom: 1px solid var(--color-border-subtle);
+            font-variant-numeric: tabular-nums;
+        }
+
+        .recent-trades-table tbody tr {
+            transition: background var(--transition-fast);
+        }
+
+        .recent-trades-table tbody tr:hover {
+            background: var(--color-background-card-hover);
+        }
+
+        .recent-trades-table__direction-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 3px;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-weight: 700;
+            font-size: 9px;
+            text-transform: uppercase;
+        }
+
+        .recent-trades-table__direction-badge--call {
+            color: var(--color-signal-call);
+            background: var(--color-signal-call-bg);
+        }
+
+        .recent-trades-table__direction-badge--put {
+            color: var(--color-signal-put);
+            background: var(--color-signal-put-bg);
+        }
+
+        .recent-trades-table__result-badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 3px;
+            font-weight: 700;
+            font-size: 9px;
+            text-transform: uppercase;
+        }
+
+        .recent-trades-table__result-badge--win {
+            color: var(--color-win);
+            background: rgba(63, 185, 80, 0.12);
+        }
+
+        .recent-trades-table__result-badge--loss {
+            color: var(--color-loss);
+            background: rgba(248, 81, 73, 0.12);
+        }
+
+        .recent-trades-table__profit-loss--positive {
+            color: var(--color-win);
+            font-weight: 600;
+        }
+
+        .recent-trades-table__profit-loss--negative {
+            color: var(--color-loss);
+            font-weight: 600;
+        }
+
+        .recent-trades-table__empty-row td {
+            text-align: center;
+            color: var(--color-text-muted);
+            padding: 20px;
+            font-style: italic;
+        }
+
+        /* ================================================================
+           ANIMATIONS
+           ================================================================ */
+        @keyframes fade-in-up {
+            from {
+                opacity: 0;
+                transform: translateY(8px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes shimmer-highlight {
+            0% { background-position: -200% 0; }
+            100% { background-position: 200% 0; }
+        }
+
+        .animate-fade-in {
+            animation: fade-in-up 0.3s ease forwards;
+        }
+    </style>
+</head>
+<body>
+    <!-- ================================================================
+         DASHBOARD LAYOUT
+         ================================================================ -->
+    <div class="dashboard-layout">
+
+        <!-- ============================================================
+             TOP BAR
+             ============================================================ -->
+        <header class="top-bar">
+            <div class="top-bar__brand">
+                <div class="top-bar__logo-icon">Au</div>
+                <span class="top-bar__title">Gold Trading Platform</span>
+                <span class="top-bar__subtitle">XAU/USD • Demo Account</span>
+            </div>
+            <div class="top-bar__price-section">
+                <div class="live-price-display">
+                    <span class="live-price-display__label">Gold</span>
+                    <span class="live-price-display__value" id="live-gold-price">—</span>
+                    <span class="live-price-display__currency">USD/oz</span>
+                </div>
+                <div class="connection-status-indicator connection-status-indicator--disconnected" id="connection-status-indicator">
+                    <span class="connection-status-indicator__dot"></span>
+                    <span id="connection-status-text">Disconnected</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- ============================================================
+             CHART AREA
+             ============================================================ -->
+        <main class="chart-area">
+            <div class="chart-container">
+                <div class="chart-container__header">
+                    <span class="chart-container__title">XAU/USD Candlestick Chart</span>
+                    <span class="chart-container__timeframe">10s Candles</span>
+                </div>
+                <div class="chart-container__body" id="candlestick-chart-container"></div>
+            </div>
+        </main>
+
+        <!-- ============================================================
+             SIDEBAR
+             ============================================================ -->
+        <aside class="sidebar">
+            <!-- Agent Signals Section -->
+            <div class="sidebar__section">
+                <div class="section-header">
+                    <span class="section-header__title">Agent Signals</span>
+                    <span class="section-header__badge" id="agent-count-badge">0 / 7</span>
+                </div>
+                <div class="agent-signals-grid" id="agent-signals-grid">
+                    <!-- Agent cards populated by JavaScript -->
+                </div>
+            </div>
+
+            <!-- Consensus Section -->
+            <div class="sidebar__section">
+                <div class="section-header">
+                    <span class="section-header__title">Consensus</span>
+                </div>
+                <div class="consensus-display" id="consensus-display">
+                    <div class="consensus-display__label">Signal</div>
+                    <div class="consensus-display__direction consensus-display__direction--waiting" id="consensus-direction-text">WAITING</div>
+                    <div class="consensus-display__meta">
+                        Confidence: <span class="consensus-display__confidence-value" id="consensus-confidence-value">—</span>
+                        &nbsp;·&nbsp;
+                        <span id="consensus-agents-text">0 / 0 agents</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Active Trade Section -->
+            <div class="sidebar__section">
+                <div class="section-header">
+                    <span class="section-header__title">Active Trade</span>
+                </div>
+                <div class="active-trade-card" id="active-trade-card">
+                    <div class="active-trade-card__empty" id="active-trade-empty-state">No active trade</div>
+                    <div id="active-trade-details" style="display:none;">
+                        <div class="active-trade-card__countdown" id="active-trade-countdown">—</div>
+                        <div class="active-trade-card__row">
+                            <span class="active-trade-card__label">Direction</span>
+                            <span class="active-trade-card__value" id="active-trade-direction">—</span>
+                        </div>
+                        <div class="active-trade-card__row">
+                            <span class="active-trade-card__label">Entry Price</span>
+                            <span class="active-trade-card__value" id="active-trade-entry-price">—</span>
+                        </div>
+                        <div class="active-trade-card__row">
+                            <span class="active-trade-card__label">Amount</span>
+                            <span class="active-trade-card__value" id="active-trade-amount">—</span>
+                        </div>
+                        <div class="active-trade-card__row">
+                            <span class="active-trade-card__label">Current Price</span>
+                            <span class="active-trade-card__value" id="active-trade-current-price">—</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- ============================================================
+             BOTTOM SECTION
+             ============================================================ -->
+        <section class="bottom-section">
+            <!-- Performance Stats Row -->
+            <div class="performance-stats-row">
+                <div class="performance-stat-item">
+                    <span class="performance-stat-item__label">Total Trades</span>
+                    <span class="performance-stat-item__value" id="stat-total-trades">0</span>
+                </div>
+                <div class="performance-stat-item">
+                    <span class="performance-stat-item__label">Win Rate</span>
+                    <span class="performance-stat-item__value" id="stat-win-rate">0.0%</span>
+                </div>
+                <div class="performance-stat-item">
+                    <span class="performance-stat-item__label">Total P&L</span>
+                    <span class="performance-stat-item__value" id="stat-total-pnl">$0.00</span>
+                </div>
+                <div class="performance-stat-item">
+                    <span class="performance-stat-item__label">Balance</span>
+                    <span class="performance-stat-item__value performance-stat-item__value--gold" id="stat-current-balance">$10,000.00</span>
+                </div>
+                <div class="performance-stat-item">
+                    <span class="performance-stat-item__label">Current Streak</span>
+                    <span class="performance-stat-item__value" id="stat-current-streak">—</span>
+                </div>
+            </div>
+
+            <!-- Recent Trades Table -->
+            <div class="recent-trades-container" id="recent-trades-container">
+                <table class="recent-trades-table">
+                    <thead>
+                        <tr>
+                            <th>Time</th>
+                            <th>Direction</th>
+                            <th>Entry</th>
+                            <th>Exit</th>
+                            <th>Result</th>
+                            <th>P&L</th>
+                        </tr>
+                    </thead>
+                    <tbody id="recent-trades-table-body">
+                        <tr class="recent-trades-table__empty-row">
+                            <td colspan="6">No trades recorded yet</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </div>
+
+    <!-- ================================================================
+         JAVASCRIPT — DASHBOARD LOGIC
+         ================================================================ -->
+    <script>
+        /* ================================================================
+           APPLICATION STATE
+           ================================================================ */
+        const DashboardState = {
+            previousGoldPrice: null,
+            currentGoldPrice: null,
+            isConnected: false,
+            activeTrade: null,
+            activeTradeCountdownInterval: null,
+            recentTradesList: [],
+            candlestickChart: null,
+            candlestickSeries: null,
+            candleDataMap: new Map(),
+        };
+
+        /* ================================================================
+           DOM ELEMENT REFERENCES
+           ================================================================ */
+        const DomElements = {
+            liveGoldPrice: document.getElementById("live-gold-price"),
+            connectionStatusIndicator: document.getElementById("connection-status-indicator"),
+            connectionStatusText: document.getElementById("connection-status-text"),
+            agentSignalsGrid: document.getElementById("agent-signals-grid"),
+            agentCountBadge: document.getElementById("agent-count-badge"),
+            consensusDisplay: document.getElementById("consensus-display"),
+            consensusDirectionText: document.getElementById("consensus-direction-text"),
+            consensusConfidenceValue: document.getElementById("consensus-confidence-value"),
+            consensusAgentsText: document.getElementById("consensus-agents-text"),
+            activeTradeCard: document.getElementById("active-trade-card"),
+            activeTradeEmptyState: document.getElementById("active-trade-empty-state"),
+            activeTradeDetails: document.getElementById("active-trade-details"),
+            activeTradeCountdown: document.getElementById("active-trade-countdown"),
+            activeTradeDirection: document.getElementById("active-trade-direction"),
+            activeTradeEntryPrice: document.getElementById("active-trade-entry-price"),
+            activeTradeAmount: document.getElementById("active-trade-amount"),
+            activeTradeCurrentPrice: document.getElementById("active-trade-current-price"),
+            statTotalTrades: document.getElementById("stat-total-trades"),
+            statWinRate: document.getElementById("stat-win-rate"),
+            statTotalPnl: document.getElementById("stat-total-pnl"),
+            statCurrentBalance: document.getElementById("stat-current-balance"),
+            statCurrentStreak: document.getElementById("stat-current-streak"),
+            recentTradesTableBody: document.getElementById("recent-trades-table-body"),
+            recentTradesContainer: document.getElementById("recent-trades-container"),
+            candlestickChartContainer: document.getElementById("candlestick-chart-container"),
+        };
+
+        /* ================================================================
+           CHART INITIALIZATION
+           ================================================================ */
+        function initializeCandlestickChart() {
+            const chartContainerElement = DomElements.candlestickChartContainer;
+            const containerWidth = chartContainerElement.clientWidth;
+            const containerHeight = chartContainerElement.clientHeight;
+
+            DashboardState.candlestickChart = LightweightCharts.createChart(chartContainerElement, {
+                width: containerWidth,
+                height: containerHeight,
+                layout: {
+                    background: { type: "solid", color: "#161b22" },
+                    textColor: "#8b949e",
+                    fontFamily: "'Inter', sans-serif",
+                    fontSize: 11,
+                },
+                grid: {
+                    vertLines: { color: "rgba(48, 54, 61, 0.4)" },
+                    horzLines: { color: "rgba(48, 54, 61, 0.4)" },
+                },
+                crosshair: {
+                    mode: LightweightCharts.CrosshairMode.Normal,
+                    vertLine: {
+                        color: "rgba(255, 215, 0, 0.3)",
+                        width: 1,
+                        style: LightweightCharts.LineStyle.Dashed,
+                        labelBackgroundColor: "#FFD700",
+                    },
+                    horzLine: {
+                        color: "rgba(255, 215, 0, 0.3)",
+                        width: 1,
+                        style: LightweightCharts.LineStyle.Dashed,
+                        labelBackgroundColor: "#FFD700",
+                    },
+                },
+                timeScale: {
+                    borderColor: "#30363d",
+                    timeVisible: true,
+                    secondsVisible: true,
+                    rightOffset: 5,
+                    barSpacing: 8,
+                },
+                rightPriceScale: {
+                    borderColor: "#30363d",
+                    scaleMargins: { top: 0.1, bottom: 0.1 },
+                },
+                handleScroll: { vertTouchDrag: false },
+            });
+
+            DashboardState.candlestickSeries = DashboardState.candlestickChart.addCandlestickSeries({
+                upColor: "#3fb950",
+                downColor: "#f85149",
+                borderDownColor: "#f85149",
+                borderUpColor: "#3fb950",
+                wickDownColor: "#f8514980",
+                wickUpColor: "#3fb95080",
+            });
+
+            const resizeObserver = new ResizeObserver((entries) => {
+                for (const entry of entries) {
+                    const { width, height } = entry.contentRect;
+                    DashboardState.candlestickChart.applyOptions({ width, height });
+                }
+            });
+            resizeObserver.observe(chartContainerElement);
+        }
+
+        /* ================================================================
+           FORMATTING UTILITIES
+           ================================================================ */
+        function formatPriceValue(priceValue) {
+            if (priceValue === null || priceValue === undefined) return "—";
+            return parseFloat(priceValue).toFixed(2);
+        }
+
+        function formatCurrencyValue(currencyValue) {
+            if (currencyValue === null || currencyValue === undefined) return "$0.00";
+            const absoluteValue = Math.abs(currencyValue);
+            const prefix = currencyValue >= 0 ? "$" : "-$";
+            return prefix + absoluteValue.toFixed(2);
+        }
+
+        function formatPercentageValue(percentageValue) {
+            if (percentageValue === null || percentageValue === undefined) return "0.0%";
+            return (percentageValue * 100).toFixed(1) + "%";
+        }
+
+        function formatTimestampForDisplay(timestampString) {
+            if (!timestampString) return "—";
+            try {
+                const dateObject = new Date(timestampString);
+                return dateObject.toLocaleTimeString("en-US", {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                    second: "2-digit",
+                    hour12: false,
+                });
+            } catch (error) {
+                return "—";
+            }
+        }
+
+        function getDirectionCssModifier(directionString) {
+            if (!directionString) return "neutral";
+            const normalizedDirection = directionString.toUpperCase();
+            if (normalizedDirection === "CALL") return "call";
+            if (normalizedDirection === "PUT") return "put";
+            return "neutral";
+        }
+
+        /* ================================================================
+           PRICE UPDATE HANDLER
+           ================================================================ */
+        function handlePriceUpdate(priceData) {
+            const newPrice = priceData.price;
+            DashboardState.previousGoldPrice = DashboardState.currentGoldPrice;
+            DashboardState.currentGoldPrice = newPrice;
+
+            const priceElement = DomElements.liveGoldPrice;
+            priceElement.textContent = formatPriceValue(newPrice);
+
+            /* Flash animation for price direction */
+            priceElement.classList.remove(
+                "live-price-display__value--flash-up",
+                "live-price-display__value--flash-down"
+            );
+
+            if (DashboardState.previousGoldPrice !== null) {
+                if (newPrice > DashboardState.previousGoldPrice) {
+                    priceElement.classList.add("live-price-display__value--flash-up");
+                } else if (newPrice < DashboardState.previousGoldPrice) {
+                    priceElement.classList.add("live-price-display__value--flash-down");
+                }
+                setTimeout(() => {
+                    priceElement.classList.remove(
+                        "live-price-display__value--flash-up",
+                        "live-price-display__value--flash-down"
+                    );
+                }, 500);
+            }
+
+            /* Update active trade current price */
+            if (DashboardState.activeTrade) {
+                DomElements.activeTradeCurrentPrice.textContent = formatPriceValue(newPrice);
+            }
+        }
+
+        function parseCandleTimestamp(c) {
+            if (!c) return Math.floor(Date.now() / 1000);
+            if (c.time !== undefined && c.time !== null) {
+                return typeof c.time === "number" ? Math.floor(c.time) : Math.floor(new Date(c.time).getTime() / 1000);
+            }
+            if (c.timestamp !== undefined && c.timestamp !== null) {
+                if (typeof c.timestamp === "number") {
+                    return c.timestamp > 1e11 ? Math.floor(c.timestamp / 1000) : Math.floor(c.timestamp);
+                }
+                const parsedDate = new Date(c.timestamp);
+                return isNaN(parsedDate.getTime()) ? Math.floor(Date.now() / 1000) : Math.floor(parsedDate.getTime() / 1000);
+            }
+            return Math.floor(Date.now() / 1000);
+        }
+
+        /* ================================================================
+           CANDLE UPDATE HANDLER
+           ================================================================ */
+        function handleCandleUpdate(candleData) {
+            if (!DashboardState.candlestickSeries || !candleData) return;
+
+            const t = parseCandleTimestamp(candleData);
+            const formattedCandle = {
+                time: t,
+                open: Number(candleData.open),
+                high: Number(candleData.high),
+                low: Number(candleData.low),
+                close: Number(candleData.close),
+            };
+
+            try {
+                DashboardState.candlestickSeries.update(formattedCandle);
+            } catch (err) {
+                console.warn("Candle update skipped:", err);
+            }
+        }
+
+        /* ================================================================
+           AGENT SIGNALS HANDLER
+           ================================================================ */
+        function handleAgentSignals(signalsList) {
+            const gridElement = DomElements.agentSignalsGrid;
+            gridElement.innerHTML = "";
+
+            let activeAgentCount = 0;
+
+            signalsList.forEach((agentSignal) => {
+                const directionModifier = getDirectionCssModifier(agentSignal.direction);
+                const confidencePercentage = (agentSignal.confidence * 100).toFixed(0);
+                let successRatePercentage = "—";
+                if (agentSignal.success_rate !== undefined && agentSignal.success_rate !== null) {
+                    const rawVal = Number(agentSignal.success_rate);
+                    const normalizedVal = rawVal > 1.0 ? rawVal : rawVal * 100;
+                    successRatePercentage = normalizedVal.toFixed(0) + "%";
+                }
+
+                if (agentSignal.direction && agentSignal.direction !== "NEUTRAL") {
+                    activeAgentCount++;
+                }
+
+                const cardElement = document.createElement("div");
+                cardElement.className = `agent-signal-card agent-signal-card--${directionModifier}`;
+                cardElement.innerHTML = `
+                    <div class="agent-signal-card__header">
+                        <span class="agent-signal-card__name">${escapeHtmlContent(agentSignal.agent_name || "Unknown")}</span>
+                        <span class="agent-signal-card__direction agent-signal-card__direction--${directionModifier}">
+                            <span class="agent-signal-card__direction-dot"></span>
+                            ${(agentSignal.direction || "NEUTRAL").toUpperCase()}
+                        </span>
+                    </div>
+                    <div class="agent-signal-card__confidence-bar">
+                        <div class="agent-signal-card__confidence-fill agent-signal-card__confidence-fill--${directionModifier}"
+                             style="width: ${confidencePercentage}%"></div>
+                    </div>
+                    <div class="agent-signal-card__meta">
+                        <span class="agent-signal-card__confidence-text">${confidencePercentage}% conf</span>
+                        <span class="agent-signal-card__success-rate">${successRatePercentage.includes("%") ? successRatePercentage : (successRatePercentage === "—" ? "—" : successRatePercentage + "%")} win</span>
+                    </div>
+                `;
+                gridElement.appendChild(cardElement);
+            });
+
+            DomElements.agentCountBadge.textContent = `${activeAgentCount} / ${signalsList.length}`;
+        }
+
+        /* ================================================================
+           CONSENSUS UPDATE HANDLER
+           ================================================================ */
+        function handleConsensusUpdate(consensusData) {
+            const displayElement = DomElements.consensusDisplay;
+            const directionText = DomElements.consensusDirectionText;
+            const confidenceValue = DomElements.consensusConfidenceValue;
+            const agentsText = DomElements.consensusAgentsText;
+
+            const direction = consensusData.direction || "NO_TRADE";
+            const directionModifier = getDirectionCssModifier(direction);
+
+            /* Reset classes */
+            displayElement.classList.remove("consensus-display--call", "consensus-display--put");
+            directionText.classList.remove(
+                "consensus-display__direction--call",
+                "consensus-display__direction--put",
+                "consensus-display__direction--waiting"
+            );
+
+            if (direction === "CALL") {
+                displayElement.classList.add("consensus-display--call");
+                directionText.classList.add("consensus-display__direction--call");
+                directionText.textContent = "CALL ▲";
+            } else if (direction === "PUT") {
+                displayElement.classList.add("consensus-display--put");
+                directionText.classList.add("consensus-display__direction--put");
+                directionText.textContent = "PUT ▼";
+            } else {
+                directionText.classList.add("consensus-display__direction--waiting");
+                directionText.textContent = "WAITING";
+            }
+
+            confidenceValue.textContent = consensusData.confidence !== undefined
+                ? formatPercentageValue(consensusData.confidence)
+                : "—";
+
+            const agreeingAgents = consensusData.agreeing_agents || 0;
+            const totalAgents = consensusData.total_agents || 0;
+            agentsText.textContent = `${agreeingAgents} / ${totalAgents} agents`;
+        }
+
+        /* ================================================================
+           TRADE UPDATE HANDLER
+           ================================================================ */
+        function handleTradeUpdate(tradeData) {
+            if (tradeData.result === "PENDING") {
+                showActiveTrade(tradeData);
+            } else {
+                hideActiveTrade();
+                addTradeToRecentHistory(tradeData);
+            }
+        }
+
+        function showActiveTrade(tradeData) {
+            DashboardState.activeTrade = tradeData;
+
+            DomElements.activeTradeEmptyState.style.display = "none";
+            DomElements.activeTradeDetails.style.display = "block";
+            DomElements.activeTradeCard.classList.add("active-trade-card--active");
+
+            DomElements.activeTradeDirection.textContent = tradeData.direction || "—";
+            DomElements.activeTradeDirection.style.color = tradeData.direction === "CALL"
+                ? "var(--color-signal-call)" : "var(--color-signal-put)";
+            DomElements.activeTradeEntryPrice.textContent = formatPriceValue(tradeData.entry_price);
+            DomElements.activeTradeAmount.textContent = formatCurrencyValue(tradeData.amount);
+
+            if (DashboardState.currentGoldPrice) {
+                DomElements.activeTradeCurrentPrice.textContent = formatPriceValue(DashboardState.currentGoldPrice);
+            }
+
+            /* Start countdown timer */
+            if (DashboardState.activeTradeCountdownInterval) {
+                clearInterval(DashboardState.activeTradeCountdownInterval);
+            }
+
+            const tradeEntryTime = new Date(tradeData.entry_time).getTime();
+            const tradeDurationMs = (tradeData.duration_seconds || 60) * 1000;
+
+            DashboardState.activeTradeCountdownInterval = setInterval(() => {
+                const nowMs = Date.now();
+                const elapsedMs = nowMs - tradeEntryTime;
+                const remainingMs = Math.max(0, tradeDurationMs - elapsedMs);
+                const remainingSeconds = Math.ceil(remainingMs / 1000);
+
+                DomElements.activeTradeCountdown.textContent = `${remainingSeconds}s`;
+
+                if (remainingMs <= 0) {
+                    DomElements.activeTradeCountdown.textContent = "Settling...";
+                    clearInterval(DashboardState.activeTradeCountdownInterval);
+                }
+            }, 250);
+        }
+
+        function hideActiveTrade() {
+            DashboardState.activeTrade = null;
+
+            if (DashboardState.activeTradeCountdownInterval) {
+                clearInterval(DashboardState.activeTradeCountdownInterval);
+                DashboardState.activeTradeCountdownInterval = null;
+            }
+
+            DomElements.activeTradeEmptyState.style.display = "block";
+            DomElements.activeTradeDetails.style.display = "none";
+            DomElements.activeTradeCard.classList.remove("active-trade-card--active");
+        }
+
+        function addTradeToRecentHistory(tradeData) {
+            DashboardState.recentTradesList.unshift(tradeData);
+
+            /* Keep a maximum of 50 trades in the history */
+            if (DashboardState.recentTradesList.length > 50) {
+                DashboardState.recentTradesList = DashboardState.recentTradesList.slice(0, 50);
+            }
+
+            renderRecentTradesTable();
+        }
+
+        function renderRecentTradesTable() {
+            const tableBody = DomElements.recentTradesTableBody;
+
+            if (DashboardState.recentTradesList.length === 0) {
+                tableBody.innerHTML = `
+                    <tr class="recent-trades-table__empty-row">
+                        <td colspan="6">No trades recorded yet</td>
+                    </tr>`;
+                return;
+            }
+
+            tableBody.innerHTML = "";
+
+            DashboardState.recentTradesList.forEach((trade, tradeIndex) => {
+                const tableRow = document.createElement("tr");
+                if (tradeIndex === 0) {
+                    tableRow.classList.add("animate-fade-in");
+                }
+
+                const directionModifier = getDirectionCssModifier(trade.direction);
+                const resultModifier = trade.result === "WIN" ? "win" : "loss";
+                const profitLossModifier = trade.profit_loss >= 0 ? "positive" : "negative";
+
+                const displayTime = formatTimestampForDisplay(trade.exit_time || trade.entry_time);
+
+                tableRow.innerHTML = `
+                    <td>${displayTime}</td>
+                    <td>
+                        <span class="recent-trades-table__direction-badge recent-trades-table__direction-badge--${directionModifier}">
+                            ${(trade.direction || "—").toUpperCase()}
+                        </span>
+                    </td>
+                    <td>${formatPriceValue(trade.entry_price)}</td>
+                    <td>${formatPriceValue(trade.exit_price)}</td>
+                    <td>
+                        <span class="recent-trades-table__result-badge recent-trades-table__result-badge--${resultModifier}">
+                            ${trade.result || "—"}
+                        </span>
+                    </td>
+                    <td>
+                        <span class="recent-trades-table__profit-loss--${profitLossModifier}">
+                            ${trade.profit_loss >= 0 ? "+" : ""}${formatCurrencyValue(trade.profit_loss)}
+                        </span>
+                    </td>
+                `;
+
+                tableBody.appendChild(tableRow);
+            });
+
+            /* Auto-scroll to show newest trade */
+            DomElements.recentTradesContainer.scrollTop = 0;
+        }
+
+        /* ================================================================
+           PERFORMANCE UPDATE HANDLER
+           ================================================================ */
+        function handlePerformanceUpdate(performanceData) {
+            DomElements.statTotalTrades.textContent = performanceData.total_trades || 0;
+
+            const winRateValue = performanceData.success_rate || 0;
+            DomElements.statWinRate.textContent = formatPercentageValue(winRateValue);
+            DomElements.statWinRate.className = "performance-stat-item__value";
+            if (winRateValue >= 0.55) {
+                DomElements.statWinRate.classList.add("performance-stat-item__value--positive");
+            } else if (winRateValue < 0.45 && performanceData.total_trades > 0) {
+                DomElements.statWinRate.classList.add("performance-stat-item__value--negative");
+            }
+
+            const totalPnlValue = performanceData.total_profit_loss || 0;
+            DomElements.statTotalPnl.textContent = (totalPnlValue >= 0 ? "+" : "") + formatCurrencyValue(totalPnlValue);
+            DomElements.statTotalPnl.className = "performance-stat-item__value";
+            if (totalPnlValue > 0) {
+                DomElements.statTotalPnl.classList.add("performance-stat-item__value--positive");
+            } else if (totalPnlValue < 0) {
+                DomElements.statTotalPnl.classList.add("performance-stat-item__value--negative");
+            }
+
+            const currentBalance = performanceData.current_balance || 10000;
+            DomElements.statCurrentBalance.textContent = formatCurrencyValue(currentBalance);
+
+            const currentStreak = performanceData.current_streak || { type: "NONE", count: 0 };
+            if (currentStreak.type === "WIN" && currentStreak.count > 0) {
+                DomElements.statCurrentStreak.textContent = `${currentStreak.count}W 🔥`;
+                DomElements.statCurrentStreak.className = "performance-stat-item__value performance-stat-item__value--positive";
+            } else if (currentStreak.type === "LOSS" && currentStreak.count > 0) {
+                DomElements.statCurrentStreak.textContent = `${currentStreak.count}L`;
+                DomElements.statCurrentStreak.className = "performance-stat-item__value performance-stat-item__value--negative";
+            } else {
+                DomElements.statCurrentStreak.textContent = "—";
+                DomElements.statCurrentStreak.className = "performance-stat-item__value";
+            }
+        }
+
+        /* ================================================================
+           FULL STATE HANDLER (New Connection)
+           ================================================================ */
+        function handleFullState(stateData) {
+            /* Restore current price */
+            if (stateData.current_price) {
+                handlePriceUpdate({ price: stateData.current_price, timestamp: new Date().toISOString() });
+            }
+
+            /* Restore candles */
+            if (stateData.candles && Array.isArray(stateData.candles) && DashboardState.candlestickSeries) {
+                const seenTimes = new Set();
+                const sortedCandles = [];
+
+                stateData.candles.forEach((c) => {
+                    const t = parseCandleTimestamp(c);
+                    if (!isNaN(t) && !seenTimes.has(t)) {
+                        seenTimes.add(t);
+                        sortedCandles.push({
+                            time: t,
+                            open: Number(c.open),
+                            high: Number(c.high),
+                            low: Number(c.low),
+                            close: Number(c.close),
+                        });
+                    }
+                });
+
+                sortedCandles.sort((a, b) => a.time - b.time);
+
+                if (sortedCandles.length > 0) {
+                    try {
+                        DashboardState.candlestickSeries.setData(sortedCandles);
+                    } catch (setDataErr) {
+                        console.error("Failed to set chart data:", setDataErr);
+                    }
+                }
+            }
+
+            /* Restore agent signals */
+            if (stateData.agent_signals && Array.isArray(stateData.agent_signals)) {
+                handleAgentSignals(stateData.agent_signals);
+            }
+
+            /* Restore consensus */
+            if (stateData.consensus) {
+                handleConsensusUpdate(stateData.consensus);
+            }
+
+            /* Restore active trade */
+            if (stateData.active_trade) {
+                showActiveTrade(stateData.active_trade);
+            }
+
+            /* Restore performance */
+            if (stateData.performance) {
+                handlePerformanceUpdate(stateData.performance);
+            }
+
+            /* Restore recent trades */
+            if (stateData.recent_trades && Array.isArray(stateData.recent_trades)) {
+                DashboardState.recentTradesList = stateData.recent_trades.slice(0, 50);
+                renderRecentTradesTable();
+            }
+        }
+
+        /* ================================================================
+           HTML ESCAPE UTILITY
+           ================================================================ */
+        function escapeHtmlContent(unsafeString) {
+            const temporaryDiv = document.createElement("div");
+            temporaryDiv.textContent = unsafeString;
+            return temporaryDiv.innerHTML;
+        }
+
+        /* ================================================================
+           CONNECTION STATUS MANAGEMENT
+           ================================================================ */
+        function updateConnectionStatus(isConnected) {
+            DashboardState.isConnected = isConnected;
+            const indicatorElement = DomElements.connectionStatusIndicator;
+
+            indicatorElement.classList.remove(
+                "connection-status-indicator--connected",
+                "connection-status-indicator--disconnected"
+            );
+
+            if (isConnected) {
+                indicatorElement.classList.add("connection-status-indicator--connected");
+                DomElements.connectionStatusText.textContent = "Connected";
+            } else {
+                indicatorElement.classList.add("connection-status-indicator--disconnected");
+                DomElements.connectionStatusText.textContent = "Disconnected";
+            }
+        }
+
+        /* ================================================================
+           SOCKET.IO INITIALIZATION & EVENT BINDING
+           ================================================================ */
+        function initializeSocketConnection() {
+            const socketConnection = io();
+
+            socketConnection.on("connect", () => {
+                updateConnectionStatus(true);
+                /* Request full state on new connection */
+                socketConnection.emit("request_full_state");
+            });
+
+            socketConnection.on("disconnect", () => {
+                updateConnectionStatus(false);
+            });
+
+            socketConnection.on("connect_error", () => {
+                updateConnectionStatus(false);
+            });
+
+            socketConnection.on("price_update", (data) => {
+                handlePriceUpdate(data);
+            });
+
+            socketConnection.on("candle_update", (data) => {
+                handleCandleUpdate(data);
+            });
+
+            socketConnection.on("agent_signals", (data) => {
+                handleAgentSignals(data);
+            });
+
+            socketConnection.on("consensus_update", (data) => {
+                handleConsensusUpdate(data);
+            });
+
+            socketConnection.on("trade_update", (data) => {
+                handleTradeUpdate(data);
+            });
+
+            socketConnection.on("performance_update", (data) => {
+                handlePerformanceUpdate(data);
+            });
+
+            socketConnection.on("full_state", (data) => {
+                handleFullState(data);
+            });
+        }
+
+        /* ================================================================
+           APPLICATION BOOTSTRAP
+           ================================================================ */
+        document.addEventListener("DOMContentLoaded", () => {
+            initializeCandlestickChart();
+            initializeSocketConnection();
+        });
+    </script>
+</body>
+</html>
