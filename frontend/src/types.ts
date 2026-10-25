@@ -1,4 +1,16 @@
+/**
+ * TypeScript Data Models for Gold Trading Analysis Platform.
+ * 
+ * Strict type definitions adhering to Global Naming Standardization
+ * for all platform states, technical indicators, trade contracts,
+ * performance metrics, and responsive viewport modes.
+ */
+
 export type TradeDirection = 'CALL' | 'PUT' | 'NEUTRAL';
+
+export type NavigationTab = 'terminal' | 'chart' | 'agents' | 'analytics' | 'history';
+
+export type ChartType = 'candlestick' | 'area';
 
 export interface Candle {
   time: number;
@@ -15,7 +27,7 @@ export interface AgentSignal {
   direction: TradeDirection;
   confidence: number;
   reasoning: string;
-  indicator_values?: Record<string, any>;
+  indicator_values?: Record<string, number | string | boolean>;
   success_rate?: number;
 }
 
@@ -78,6 +90,7 @@ export interface RuntimeConfig {
   trade_amount_usd: number;
   payout_percentage: number;
   asset_symbol?: string;
+  auto_trade_enabled?: boolean;
 }
 
 export interface PlatformState {
@@ -92,4 +105,15 @@ export interface PlatformState {
   recent_trades: ActiveTrade[];
   active_trade: ActiveTrade | null;
   current_balance: number;
+}
+
+export interface AgentMetadata {
+  id: string;
+  title: string;
+  subtitle: string;
+  tag: string;
+  category: 'Momentum' | 'Trend' | 'Volatility' | 'Structural';
+  description: string;
+  formula: string;
+  thresholds: string;
 }

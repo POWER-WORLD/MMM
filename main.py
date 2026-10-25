@@ -112,6 +112,7 @@ class GoldTradingPlatform:
             get_state_callback=self._get_full_state_dict,
             get_config_callback=self._get_runtime_config,
             update_config_callback=self._update_runtime_config,
+            place_trade_callback=self._place_manual_trade,
         )
         self.event_emitter = DashboardEventEmitter(socket_io=self.socket_io)
 
@@ -174,6 +175,81 @@ class GoldTradingPlatform:
             self.logger.info("Received update_config socket event: %s", data)
             if isinstance(data, dict):
                 self._update_runtime_config(data)
+
+        @self.socket_io.on("place_trade")
+        def handle_place_trade(data):
+            self.logger.info("Received place_trade socket event: %s", data)
+            if isinstance(data, dict):
+                direction = data.get("direction", "CALL")
+                amount = data.get("amount")
+                duration = data.get("duration")
+                self._place_manual_trade(direction, amount, duration)
+
+    def _place_manual_trade(
+        self,
+        direction_str: str,
+        amount: Optional[float] = None,
+        duration_seconds: Optional[int] = None,
+    ) -> Optional[dict]:
+        """Execute a manual demo trade directly from the dashboard."""
+        current_price = self.data_store.get_latest_price()
+        if current_price is None:
+            self.logger.warning("Manual trade skipped: no current spot price.")
+            return None
+
+        if self.trade_executor.has_pending_trade():
+            self.logger.warning("Manual trade skipped: active trade contract already running.")
+            return None
+
+        direction = TradeDirection.CALL if direction_str.upper() == "CALL" else TradeDirection.PUT
+        stake = float(amount) if amount and float(amount) > 0 else self.active_trade_amount_usd
+        duration = int(duration_seconds) if duration_seconds and int(duration_seconds) > 0 else self.active_trade_duration_seconds
+
+        trade_record = self.trade_executor.place_trade(
+            direction=direction,
+            entry_price=current_price,
+            amount=stake,
+            agent_signals=[],
+            duration_seconds=duration,
+        )
+        self._last_trade_time = datetime.now()
+
+        try:
+            olymp_order = self.olymp_trade_client.place_demo_trade(
+                asset_symbol=PLATFORM_CONFIG.trading.OLYMP_TRADE_ASSET,
+                direction=direction.value,
+                amount_usd=stake,
+                duration_seconds=duration,
+            )
+            self.logger.info(
+                "Manual Demo Trade Dispatched: order_id=%s status=%s",
+                olymp_order.get("order_id"),
+                olymp_order.get("status"),
+            )
+        except Exception as ot_err:
+            self.logger.warning("Olymp Trade manual order dispatch notice: %s", ot_err)
+
+        self.logger.info(
+            "MANUAL TRADE EXECUTED: %s at %.2f | Stake: $%.2f | Duration: %ds",
+            direction.value,
+            current_price,
+            stake,
+            duration,
+        )
+
+        trade_info = self._format_trade_for_dashboard(trade_record)
+        self.event_emitter.emit_trade_update(trade=trade_info)
+
+        settlement_timer = threading.Timer(
+            interval=duration,
+            function=self._settle_trade,
+            args=[trade_record],
+        )
+        settlement_timer.daemon = True
+        settlement_timer.start()
+        self._trade_settlement_timers[trade_record.trade_id] = settlement_timer
+
+        return trade_info
 
     def _get_runtime_config(self) -> dict:
         """Return the current dynamic platform runtime configuration."""

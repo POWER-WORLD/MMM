@@ -20,6 +20,7 @@ def create_dashboard_application(
     get_state_callback: Optional[Callable[[], Dict[str, Any]]] = None,
     get_config_callback: Optional[Callable[[], Dict[str, Any]]] = None,
     update_config_callback: Optional[Callable[[Dict[str, Any]], Dict[str, Any]]] = None,
+    place_trade_callback: Optional[Callable[[str, Optional[float], Optional[int]], Optional[Dict[str, Any]]]] = None,
 ) -> Tuple[Flask, SocketIO]:
     """Create and configure the Flask dashboard application.
 
@@ -144,7 +145,7 @@ def create_dashboard_application(
             return jsonify(state.get("performance", {}))
         return jsonify({})
 
-    @application.route("/api/trades")
+    @application.route("/api/trades", methods=["GET"])
     def api_trades():
         """Return active trade and trade history."""
         if get_state_callback is not None:
@@ -154,5 +155,22 @@ def create_dashboard_application(
                 "recent_trades": state.get("recent_trades", []),
             })
         return jsonify({"active_trade": None, "recent_trades": []})
+
+    @application.route("/api/trades/place", methods=["POST"])
+    def api_place_trade():
+        """Execute a manual demo trade."""
+        if place_trade_callback is not None:
+            data = request.get_json(silent=True) or {}
+            direction = str(data.get("direction", "CALL")).upper()
+            amount = data.get("amount")
+            duration = data.get("duration")
+            result = place_trade_callback(direction, amount, duration)
+            if result:
+                return jsonify({"status": "success", "trade": result})
+            return jsonify({
+                "status": "error",
+                "message": "Cannot execute trade. Active contract pending or live price unavailable."
+            }), 400
+        return jsonify({"status": "error", "message": "Manual trade placement not configured"}), 501
 
     return application, socket_io

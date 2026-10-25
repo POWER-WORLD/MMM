@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   createChart,
   CandlestickSeries,
@@ -8,14 +8,24 @@ import {
   ColorType,
   LineStyle,
 } from 'lightweight-charts';
-import { Candle } from '../types';
-import { BarChart3, Clock, Zap } from 'lucide-react';
+import { Candle, ActiveTrade } from '../types';
+import {
+  BarChart3,
+  Clock,
+  Zap,
+  Maximize2,
+  Minimize2,
+  TrendingUp,
+  Activity,
+  Layers,
+} from 'lucide-react';
 
 interface CandleChartProps {
   candles: Candle[];
   currentPrice: number | null;
   candleIntervalSeconds: number;
   onIntervalChange: (seconds: number) => void;
+  activeTrade?: ActiveTrade | null;
 }
 
 const TIMEFRAME_OPTIONS: Array<{ seconds: number; label: string }> = [
@@ -31,12 +41,17 @@ export const CandleChart: React.FC<CandleChartProps> = ({
   currentPrice,
   candleIntervalSeconds,
   onIntervalChange,
+  activeTrade,
 }) => {
   const chartContainerRef = useRef<HTMLDivElement | null>(null);
+  const chartWrapperRef = useRef<HTMLDivElement | null>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const seriesRef = useRef<any>(null);
   const priceLineRef = useRef<any>(null);
+  const tradeLineRef = useRef<any>(null);
   const isFirstLoadRef = useRef<boolean>(true);
+
+  const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
 
   // Initialize chart on mount
   useEffect(() => {
@@ -51,14 +66,14 @@ export const CandleChart: React.FC<CandleChartProps> = ({
         width: initialWidth,
         height: initialHeight,
         layout: {
-          background: { type: ColorType.Solid, color: '#0d121c' },
-          textColor: '#94a3b8',
+          background: { type: ColorType.Solid, color: '#06080d' },
+          textColor: '#8492a6',
           fontSize: 11,
-          fontFamily: "'Inter', sans-serif",
+          fontFamily: "'JetBrains Mono', monospace",
         },
         grid: {
-          vertLines: { color: '#161e30' },
-          horzLines: { color: '#161e30' },
+          vertLines: { color: 'rgba(255, 255, 255, 0.04)' },
+          horzLines: { color: 'rgba(255, 255, 255, 0.04)' },
         },
         crosshair: {
           mode: 1,
@@ -76,15 +91,15 @@ export const CandleChart: React.FC<CandleChartProps> = ({
           },
         },
         timeScale: {
-          borderColor: '#1e2638',
+          borderColor: 'rgba(255, 255, 255, 0.07)',
           timeVisible: true,
           secondsVisible: true,
-          rightOffset: 5,
-          barSpacing: 8,
+          rightOffset: 6,
+          barSpacing: 9,
           minBarSpacing: 3,
         },
         rightPriceScale: {
-          borderColor: '#1e2638',
+          borderColor: 'rgba(255, 255, 255, 0.07)',
           autoScale: true,
           scaleMargins: {
             top: 0.1,
@@ -93,19 +108,19 @@ export const CandleChart: React.FC<CandleChartProps> = ({
         },
       });
 
-      const seriesOptions = {
+      const candleOptions = {
         upColor: '#10b981',
-        downColor: '#ef4444',
+        downColor: '#f43f5e',
         borderVisible: false,
         wickUpColor: '#10b981',
-        wickDownColor: '#ef4444',
+        wickDownColor: '#f43f5e',
       };
 
       let series: any = null;
       if (typeof (chart as any).addSeries === 'function' && CandlestickSeries) {
-        series = (chart as any).addSeries(CandlestickSeries, seriesOptions);
+        series = (chart as any).addSeries(CandlestickSeries, candleOptions);
       } else if (typeof (chart as any).addCandlestickSeries === 'function') {
-        series = (chart as any).addCandlestickSeries(seriesOptions);
+        series = (chart as any).addCandlestickSeries(candleOptions);
       }
 
       chartRef.current = chart;
@@ -141,13 +156,14 @@ export const CandleChart: React.FC<CandleChartProps> = ({
         chartRef.current = null;
         seriesRef.current = null;
         priceLineRef.current = null;
+        tradeLineRef.current = null;
       };
     } catch (chartInitErr) {
       console.error('Failed to initialize Lightweight Charts:', chartInitErr);
     }
   }, []);
 
-  // Update chart data whenever candle array changes
+  // Update chart data whenever candles array changes
   useEffect(() => {
     if (!seriesRef.current || !candles || candles.length === 0) return;
 
@@ -208,7 +224,7 @@ export const CandleChart: React.FC<CandleChartProps> = ({
         priceLineRef.current.applyOptions({ price: currentPrice });
       }
 
-      // 2. Update the active in-progress candle so user sees real-time price action
+      // 2. Update active in-progress candle
       if (candles && candles.length > 0) {
         const last = candles[candles.length - 1];
         const lastTime = Math.floor(last.time);
@@ -226,24 +242,67 @@ export const CandleChart: React.FC<CandleChartProps> = ({
     }
   }, [currentPrice, candles]);
 
+  // Active Trade Strike Price Line Overlay
+  useEffect(() => {
+    if (!seriesRef.current) return;
+
+    try {
+      if (activeTrade && activeTrade.result === 'PENDING') {
+        const isCall = activeTrade.direction === 'CALL';
+        const color = isCall ? '#10b981' : '#f43f5e';
+        const label = `${isCall ? '▲ CALL STRIKE' : '▼ PUT STRIKE'}: $${activeTrade.entry_price.toFixed(2)}`;
+
+        if (!tradeLineRef.current) {
+          tradeLineRef.current = seriesRef.current.createPriceLine({
+            price: activeTrade.entry_price,
+            color,
+            lineWidth: 2,
+            lineStyle: LineStyle.Solid,
+            axisLabelVisible: true,
+            title: label,
+          });
+        } else {
+          tradeLineRef.current.applyOptions({
+            price: activeTrade.entry_price,
+            color,
+            title: label,
+          });
+        }
+      } else if (tradeLineRef.current) {
+        seriesRef.current.removePriceLine(tradeLineRef.current);
+        tradeLineRef.current = null;
+      }
+    } catch (tradeLineErr) {
+      console.debug('Trade line overlay notice:', tradeLineErr);
+    }
+  }, [activeTrade]);
+
+  const toggleFullscreen = () => {
+    if (!chartWrapperRef.current) return;
+    if (!document.fullscreenElement) {
+      chartWrapperRef.current.requestFullscreen().then(() => setIsFullscreen(true)).catch(() => {});
+    } else {
+      document.exitFullscreen().then(() => setIsFullscreen(false)).catch(() => {});
+    }
+  };
+
   const latestCandle = candles && candles.length > 0 ? candles[candles.length - 1] : null;
+  const candleDelta = latestCandle ? latestCandle.close - latestCandle.open : 0;
+  const candleDeltaPct = latestCandle && latestCandle.open ? (candleDelta / latestCandle.open) * 100 : 0;
 
   return (
-    <div className="bg-[#0f1422] border border-[#1e2638] rounded-2xl p-2.5 sm:p-3.5 shadow-xl flex flex-col h-[380px] sm:h-[440px] md:h-[500px] lg:h-[540px] xl:h-[580px] 2xl:h-[640px] w-full min-w-0">
-      {/* Chart Top Controls & Timeframe Selector Bar */}
-      <div className="flex flex-wrap items-center justify-between gap-2.5 pb-2.5 border-b border-[#182030] mb-2">
-        {/* Asset & Dynamic Timeframe Controls */}
-        <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
-          <div className="flex items-center gap-1.5">
-            <BarChart3 className="w-4 h-4 text-amber-400 shrink-0" />
-            <h2 className="text-xs sm:text-sm font-bold text-white tracking-wide truncate">
-              Gold (XAU/USD)
-            </h2>
-          </div>
-
-          {/* Timeframe Selector Pill Group */}
-          <div className="flex items-center gap-1 bg-[#121826] p-0.5 rounded-lg border border-[#20293d]">
-            <Clock className="w-3 h-3 text-slate-400 ml-1.5 mr-0.5" />
+    <div
+      ref={chartWrapperRef}
+      className={`bg-[#06080d] flex flex-col w-full h-full min-h-0 relative select-none ${
+        isFullscreen ? 'fixed inset-0 z-50 rounded-none h-screen' : ''
+      }`}
+    >
+      {/* Chart Top Bar (Timeframes & OHLC) */}
+      <div className="h-9 px-3 flex items-center justify-between border-b border-[rgba(255,255,255,0.07)] bg-[#070a10] shrink-0">
+        <div className="flex items-center gap-2 sm:gap-3">
+          {/* Timeframe selector */}
+          <div className="flex items-center gap-0.5 bg-[#0e1320] p-0.5 rounded-lg border border-white/5">
+            <Clock className="w-3 h-3 text-slate-400 ml-1 mr-0.5" />
             {TIMEFRAME_OPTIONS.map((opt) => {
               const isActive = candleIntervalSeconds === opt.seconds;
               return (
@@ -251,12 +310,11 @@ export const CandleChart: React.FC<CandleChartProps> = ({
                   key={opt.seconds}
                   type="button"
                   onClick={() => onIntervalChange(opt.seconds)}
-                  className={`text-[10px] sm:text-[11px] font-bold px-2 py-0.5 rounded-md transition-all duration-150 ${
+                  className={`text-[10px] font-mono font-bold px-1.5 py-0.5 rounded transition-all ${
                     isActive
-                      ? 'bg-amber-500 text-black shadow-md shadow-amber-500/30'
-                      : 'text-slate-400 hover:text-white hover:bg-[#1a2336]'
+                      ? 'bg-amber-500 text-black shadow-sm'
+                      : 'text-slate-400 hover:text-white hover:bg-white/5'
                   }`}
-                  title={`Switch to ${opt.label} candle timeframe`}
                 >
                   {opt.label}
                 </button>
@@ -264,37 +322,58 @@ export const CandleChart: React.FC<CandleChartProps> = ({
             })}
           </div>
 
-          <div className="hidden md:flex items-center gap-1 text-[10px] font-semibold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
-            <Zap className="w-3 h-3 animate-pulse" />
-            <span>1s Streaming</span>
+          <div className="hidden sm:flex items-center gap-1 text-[10px] font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
+            <Zap className="w-2.5 h-2.5 animate-pulse" />
+            <span>Real-Time Feed</span>
           </div>
         </div>
 
-        {/* Live Candle OHLC Indicators */}
+        {/* OHLC Banner */}
         {latestCandle && (
-          <div className="flex items-center gap-2 sm:gap-3.5 text-[11px] sm:text-xs font-mono ml-auto">
+          <div className="hidden md:flex items-center gap-2.5 text-[11px] font-mono">
             <div>
               <span className="text-slate-500">O:</span>{' '}
-              <span className="text-slate-300 font-semibold">${latestCandle.open.toFixed(2)}</span>
+              <span className="text-slate-300 font-bold">${latestCandle.open.toFixed(2)}</span>
             </div>
             <div>
               <span className="text-slate-500">H:</span>{' '}
-              <span className="text-emerald-400 font-semibold">${latestCandle.high.toFixed(2)}</span>
+              <span className="text-emerald-400 font-bold">${latestCandle.high.toFixed(2)}</span>
             </div>
             <div>
               <span className="text-slate-500">L:</span>{' '}
-              <span className="text-rose-400 font-semibold">${latestCandle.low.toFixed(2)}</span>
+              <span className="text-rose-400 font-bold">${latestCandle.low.toFixed(2)}</span>
             </div>
             <div>
               <span className="text-slate-500">C:</span>{' '}
-              <span className="text-white font-bold">${latestCandle.close.toFixed(2)}</span>
+              <span className="text-white font-black">${latestCandle.close.toFixed(2)}</span>
+            </div>
+            <div
+              className={`font-black text-[10px] px-1 rounded ${
+                candleDelta >= 0 ? 'bg-emerald-500/15 text-emerald-400' : 'bg-rose-500/15 text-rose-400'
+              }`}
+            >
+              {candleDelta >= 0 ? '+' : ''}
+              {candleDelta.toFixed(2)} ({candleDeltaPct.toFixed(2)}%)
             </div>
           </div>
         )}
+
+        {/* Fullscreen Button */}
+        <button
+          onClick={toggleFullscreen}
+          type="button"
+          title={isFullscreen ? 'Exit Fullscreen' : 'Fullscreen Chart'}
+          className="p-1 rounded-md text-slate-400 hover:text-white hover:bg-white/5 transition-colors"
+        >
+          {isFullscreen ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
+        </button>
       </div>
 
-      {/* Lightweight Charts Canvas Container */}
-      <div ref={chartContainerRef} className="flex-1 w-full min-h-0 relative overflow-hidden" />
+      {/* Lightweight Charts Canvas */}
+      <div
+        ref={chartContainerRef}
+        className="flex-1 w-full h-full min-h-0 relative overflow-hidden"
+      />
     </div>
   );
 };

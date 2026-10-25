@@ -1,11 +1,28 @@
 import React from 'react';
-import { Wifi, WifiOff, RefreshCw, Timer, DollarSign, SlidersHorizontal } from 'lucide-react';
+import {
+  Wifi,
+  WifiOff,
+  RefreshCw,
+  SlidersHorizontal,
+  Volume2,
+  VolumeX,
+  Keyboard,
+  TrendingUp,
+  Activity,
+  Bot,
+  Zap,
+} from 'lucide-react';
 
 interface HeaderProps {
   currentPrice: number | null;
   previousPrice: number | null;
+  sessionHigh?: number;
+  sessionLow?: number;
   priceFlash: 'up' | 'down' | null;
   isConnected: boolean;
+  pingMs?: number;
+  isAudioMuted?: boolean;
+  onToggleAudio?: () => void;
   onRefresh: () => void;
   balance: number;
   tradeDurationSeconds: number;
@@ -13,22 +30,25 @@ interface HeaderProps {
   tradeAmountUsd: number;
   onAmountChange: (amount: number) => void;
   onOpenBrokerConfig?: () => void;
+  onOpenKeyboardShortcuts?: () => void;
+  agreeingAgentCount?: number;
+  totalAgents?: number;
+  consensusReached?: boolean;
+  consensusDirection?: 'CALL' | 'PUT' | null;
+  onToggleAiPanel?: () => void;
+  isAiPanelOpen?: boolean;
 }
-
-const DURATION_OPTIONS = [
-  { seconds: 60, label: '1m' },
-  { seconds: 120, label: '2m' },
-  { seconds: 180, label: '3m' },
-  { seconds: 300, label: '5m' },
-];
-
-const STAKE_OPTIONS = [1, 5, 10, 25, 50];
 
 export const Header: React.FC<HeaderProps> = ({
   currentPrice,
   previousPrice,
+  sessionHigh,
+  sessionLow,
   priceFlash,
   isConnected,
+  pingMs = 18,
+  isAudioMuted = false,
+  onToggleAudio,
   onRefresh,
   balance,
   tradeDurationSeconds,
@@ -36,182 +56,205 @@ export const Header: React.FC<HeaderProps> = ({
   tradeAmountUsd,
   onAmountChange,
   onOpenBrokerConfig,
+  onOpenKeyboardShortcuts,
+  agreeingAgentCount = 0,
+  totalAgents = 7,
+  consensusReached = false,
+  consensusDirection = null,
+  onToggleAiPanel,
+  isAiPanelOpen = true,
 }) => {
   const isUp = currentPrice && previousPrice ? currentPrice >= previousPrice : true;
+  const priceDelta = currentPrice && previousPrice ? currentPrice - previousPrice : 0;
 
   return (
-    <header className="border-b border-[#1e2638] bg-[#0d121c]/95 backdrop-blur sticky top-0 z-50 px-2.5 sm:px-4 md:px-5 py-2">
-      <div className="w-full flex flex-wrap items-center justify-between gap-2.5 sm:gap-4">
-        {/* Brand & Market Asset */}
-        <div className="flex items-center gap-2.5 sm:gap-3.5">
-          <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-gradient-to-br from-amber-400 to-amber-600 flex items-center justify-center shadow-lg shadow-amber-500/20 text-black font-extrabold text-base sm:text-lg shrink-0">
+    <header className="h-14 border-b border-[rgba(255,255,255,0.07)] bg-[#080b12] px-3 sm:px-4 flex items-center justify-between shrink-0 select-none z-30">
+      {/* Left: Brand Identity & Live Spot Gold Price */}
+      <div className="flex items-center gap-3 sm:gap-4">
+        {/* Gold Bullion Badge */}
+        <div className="flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-amber-400 via-amber-500 to-amber-600 flex items-center justify-center font-black text-black text-sm shadow-md shadow-amber-500/20">
             Au
           </div>
           <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-sm sm:text-base font-bold tracking-tight text-white flex items-center gap-1.5">
-                Gold Trading Platform
-                <span className="hidden xs:inline-block text-[9px] sm:text-[10px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20">
-                  7 Agents
-                </span>
-              </h1>
+            <div className="flex items-center gap-1.5">
+              <span className="font-black text-white text-sm tracking-tight">XAU / USD</span>
+              <span className="text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.2 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20 font-mono">
+                SPOT
+              </span>
             </div>
-            <p className="text-[10px] sm:text-xs text-slate-400">
-              Gold (XAU/USD) &bull; Fixed Time Trading (FTT)
-            </p>
+            <span className="text-[10px] text-slate-400 hidden sm:inline-block leading-none">
+              Gold 1-Min FTT Desk
+            </span>
           </div>
         </div>
 
-        {/* Live Gold Price Box */}
-        <div className="bg-[#121826] border border-[#20293d] rounded-xl px-3 sm:px-4 py-1 flex items-center gap-2.5 sm:gap-3 shadow-inner">
-          <div className="text-right">
-            <div className="text-[9px] sm:text-[10px] uppercase font-semibold text-slate-400 tracking-wider flex items-center justify-end gap-1">
-              <span>Gold Spot</span>
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-            </div>
-            <div
-              className={`text-lg sm:text-2xl font-bold font-mono tracking-tight transition-colors duration-200 ${
-                priceFlash === 'up'
-                  ? 'text-emerald-400'
-                  : priceFlash === 'down'
-                  ? 'text-rose-400'
-                  : 'text-white'
-              }`}
-            >
-              {currentPrice !== null && !isNaN(currentPrice)
-                ? `$${currentPrice.toFixed(2)}`
-                : 'Fetching...'}
-            </div>
+        {/* Vertical divider */}
+        <div className="h-6 w-px bg-white/10 hidden sm:block" />
+
+        {/* Live Spot Price HUD */}
+        <div className="flex items-center gap-2">
+          <div
+            className={`text-base sm:text-xl font-black font-mono tracking-tight transition-all duration-150 ${
+              priceFlash === 'up'
+                ? 'text-emerald-400 scale-105'
+                : priceFlash === 'down'
+                ? 'text-rose-400 scale-105'
+                : 'text-white'
+            }`}
+          >
+            {currentPrice !== null && !isNaN(currentPrice)
+              ? `$${currentPrice.toFixed(2)}`
+              : 'Connecting...'}
           </div>
 
           <div
-            className={`w-6 h-6 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center font-bold text-[10px] sm:text-xs shrink-0 ${
+            className={`w-5 h-5 rounded-md flex items-center justify-center text-[10px] font-black shrink-0 ${
               isUp
-                ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
-                : 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
+                ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                : 'bg-rose-500/20 text-rose-400 border border-rose-500/30'
             }`}
           >
             {isUp ? '▲' : '▼'}
           </div>
+
+          {sessionHigh && sessionLow ? (
+            <div className="hidden xl:flex items-center gap-2 text-[10px] font-mono text-slate-400 ml-1">
+              <span>
+                H: <strong className="text-emerald-400">${sessionHigh.toFixed(2)}</strong>
+              </span>
+              <span>
+                L: <strong className="text-rose-400">${sessionLow.toFixed(2)}</strong>
+              </span>
+            </div>
+          ) : null}
         </div>
+      </div>
 
-        {/* Fixed Time Duration & Stake Interactive Selectors */}
-        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-          {/* Duration Selector */}
-          <div className="flex items-center gap-1 bg-[#121826] border border-[#20293d] rounded-xl px-2 py-1">
-            <div className="flex items-center gap-1 text-[10px] font-semibold text-slate-400 mr-1">
-              <Timer className="w-3.5 h-3.5 text-amber-400" />
-              <span className="hidden sm:inline">Fixed Time:</span>
-            </div>
-            <div className="flex items-center gap-0.5">
-              {DURATION_OPTIONS.map((opt) => {
-                const isActive = tradeDurationSeconds === opt.seconds;
-                return (
-                  <button
-                    key={opt.seconds}
-                    type="button"
-                    onClick={() => onDurationChange(opt.seconds)}
-                    className={`text-[10px] sm:text-xs font-bold px-2 py-0.5 rounded-lg transition-all ${
-                      isActive
-                        ? 'bg-amber-500 text-black shadow-md shadow-amber-500/20'
-                        : 'text-slate-400 hover:text-white hover:bg-[#1a2336]'
-                    }`}
-                    title={`Set trade expiration to ${opt.label} (${opt.seconds}s)`}
-                  >
-                    {opt.label}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
+      {/* Center: AI Consensus Quick Capsule */}
+      <div className="hidden md:flex items-center gap-2">
+        <button
+          type="button"
+          onClick={onToggleAiPanel}
+          className={`px-3 py-1.5 rounded-full border flex items-center gap-2 text-xs transition-all ${
+            consensusReached
+              ? consensusDirection === 'CALL'
+                ? 'bg-emerald-950/60 border-emerald-500/50 text-emerald-300 shadow-md shadow-emerald-500/20 animate-pulse'
+                : 'bg-rose-950/60 border-rose-500/50 text-rose-300 shadow-md shadow-rose-500/20 animate-pulse'
+              : 'bg-[#0f1422] border-white/10 text-slate-300 hover:border-amber-400/40'
+          }`}
+          title="7-Agent Technical Analysis Consensus Protocol"
+        >
+          <Bot className={`w-3.5 h-3.5 ${consensusReached ? 'text-amber-400' : 'text-slate-400'}`} />
+          <span className="font-bold text-[11px]">
+            {consensusReached ? (
+              <span className="text-white font-mono font-black">
+                ⚡ 7/7 UNANIMOUS {consensusDirection}
+              </span>
+            ) : (
+              <span>
+                7 AI Agents: <strong className="text-amber-400 font-mono">{agreeingAgentCount} / {totalAgents}</strong> Agree
+              </span>
+            )}
+          </span>
+          <span
+            className={`w-2 h-2 rounded-full ${
+              consensusReached
+                ? 'bg-emerald-400 animate-ping'
+                : isConnected
+                ? 'bg-amber-400'
+                : 'bg-slate-600'
+            }`}
+          />
+        </button>
+      </div>
 
-          {/* Stake Selector */}
-          <div className="flex items-center gap-1 bg-[#121826] border border-[#20293d] rounded-xl px-2 py-1">
-            <div className="flex items-center gap-1 text-[10px] font-semibold text-slate-400 mr-1">
-              <DollarSign className="w-3.5 h-3.5 text-emerald-400" />
-              <span className="hidden sm:inline">Stake:</span>
-            </div>
-            <div className="flex items-center gap-0.5">
-              {STAKE_OPTIONS.map((stake) => {
-                const isActive = tradeAmountUsd === stake;
-                return (
-                  <button
-                    key={stake}
-                    type="button"
-                    onClick={() => onAmountChange(stake)}
-                    className={`text-[10px] sm:text-xs font-bold px-1.5 py-0.5 rounded-lg transition-all ${
-                      isActive
-                        ? 'bg-emerald-500 text-black shadow-md shadow-emerald-500/20'
-                        : 'text-slate-400 hover:text-white hover:bg-[#1a2336]'
-                    }`}
-                    title={`Set trade stake to $${stake}`}
-                  >
-                    ${stake}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-
-        {/* Demo Balance & Status */}
-        <div className="flex items-center gap-2.5 sm:gap-3.5 ml-auto sm:ml-0">
-          {/* Account Demo Balance */}
-          <div className="bg-[#121826] border border-[#20293d] rounded-xl px-3 sm:px-4 py-1">
-            <div className="text-[9px] sm:text-[10px] uppercase font-semibold text-slate-400 tracking-wider">
+      {/* Right: Demo Balance & Controls */}
+      <div className="flex items-center gap-2 sm:gap-3">
+        {/* Demo Balance Capsule */}
+        <div className="bg-[#0f1422] border border-white/10 rounded-xl px-2.5 sm:px-3 py-1 flex items-center gap-2">
+          <div className="text-right">
+            <span className="text-[9px] uppercase tracking-wider text-slate-400 font-bold block leading-none">
               Olymp Demo
-            </div>
-            <div className="text-sm sm:text-xl font-bold font-mono text-amber-400">
+            </span>
+            <span className="text-xs sm:text-sm font-black font-mono text-amber-400 leading-tight">
               ${balance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-            </div>
+            </span>
           </div>
+        </div>
 
-          {/* Connection Status Badge */}
-          <div
-            className={`flex items-center gap-1.5 text-[11px] sm:text-xs px-2.5 py-1 rounded-full border ${
-              isConnected
-                ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
-                : 'bg-rose-500/10 text-rose-400 border-rose-500/20'
+        {/* Audio FX Toggle */}
+        {onToggleAudio && (
+          <button
+            onClick={onToggleAudio}
+            type="button"
+            title={isAudioMuted ? 'Sound Alerts: Muted' : 'Sound Alerts: Active'}
+            className={`p-1.5 rounded-lg border transition-colors ${
+              isAudioMuted
+                ? 'bg-[#121827] text-slate-500 border-white/5'
+                : 'bg-amber-500/10 text-amber-400 border-amber-500/25'
             }`}
           >
-            {isConnected ? (
-              <>
-                <span className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-emerald-400 animate-pulse" />
-                <Wifi className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
-                <span className="hidden md:inline">Live</span>
-              </>
-            ) : (
-              <>
-                <span className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-rose-400" />
-                <WifiOff className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
-                <span className="hidden md:inline">Offline</span>
-              </>
-            )}
-          </div>
-
-          {/* Olymp Trade Config Button */}
-          {onOpenBrokerConfig && (
-            <button
-              onClick={onOpenBrokerConfig}
-              type="button"
-              title="Configure Olymp Trade Demo Account"
-              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 hover:text-amber-300 border border-amber-500/20 transition-colors text-xs font-semibold"
-            >
-              <SlidersHorizontal className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Broker API</span>
-            </button>
-          )}
-
-          {/* Refresh Button */}
-          <button
-            onClick={onRefresh}
-            type="button"
-            title="Refresh platform state"
-            className="p-1.5 sm:p-2 rounded-lg bg-[#161c2b] hover:bg-[#1f283d] text-slate-400 hover:text-white border border-[#232c42] transition-colors"
-          >
-            <RefreshCw className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+            {isAudioMuted ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
           </button>
+        )}
+
+        {/* Telemetry Ping */}
+        <div
+          className={`hidden sm:flex items-center gap-1 text-[11px] font-mono px-2 py-1 rounded-lg border ${
+            isConnected
+              ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+              : 'bg-rose-500/10 text-rose-400 border-rose-500/20'
+          }`}
+          title={`Network Roundtrip: ${pingMs}ms`}
+        >
+          {isConnected ? (
+            <>
+              <Wifi className="w-3 h-3" />
+              <span className="font-bold">{pingMs}ms</span>
+            </>
+          ) : (
+            <>
+              <WifiOff className="w-3 h-3" />
+              <span>Offline</span>
+            </>
+          )}
         </div>
+
+        {/* Broker API Settings */}
+        {onOpenBrokerConfig && (
+          <button
+            onClick={onOpenBrokerConfig}
+            type="button"
+            title="Configure Olymp Trade Demo Account"
+            className="p-1.5 sm:px-2.5 sm:py-1 rounded-lg bg-[#141b2c] hover:bg-[#1c263c] text-slate-300 hover:text-white border border-white/10 transition-colors flex items-center gap-1.5 text-xs font-semibold"
+          >
+            <SlidersHorizontal className="w-3.5 h-3.5 text-amber-400" />
+            <span className="hidden xl:inline text-[11px]">Broker</span>
+          </button>
+        )}
+
+        {/* Hotkeys */}
+        {onOpenKeyboardShortcuts && (
+          <button
+            onClick={onOpenKeyboardShortcuts}
+            type="button"
+            title="Terminal Hotkeys"
+            className="hidden sm:flex p-1.5 rounded-lg bg-[#141b2c] hover:bg-[#1c263c] text-slate-400 hover:text-white border border-white/10 transition-colors"
+          >
+            <Keyboard className="w-3.5 h-3.5" />
+          </button>
+        )}
+
+        {/* Force Refresh */}
+        <button
+          onClick={onRefresh}
+          type="button"
+          title="Refresh State"
+          className="p-1.5 rounded-lg bg-[#141b2c] hover:bg-[#1c263c] text-slate-400 hover:text-white border border-white/10 transition-colors"
+        >
+          <RefreshCw className="w-3.5 h-3.5" />
+        </button>
       </div>
     </header>
   );

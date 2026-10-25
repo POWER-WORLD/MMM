@@ -1,13 +1,18 @@
 import React from 'react';
-import { ConsensusData } from '../types';
-import { Scale, ArrowUpCircle, ArrowDownCircle } from 'lucide-react';
+import { ConsensusData, AgentSignal } from '../types';
+import { Scale, ArrowUpCircle, ArrowDownCircle, Zap, ShieldAlert, CheckCircle2 } from 'lucide-react';
 
 interface ConsensusBarProps {
   consensus: ConsensusData | null;
-  agentCount: number;
+  signals?: AgentSignal[];
+  agentCount?: number;
 }
 
-export const ConsensusBar: React.FC<ConsensusBarProps> = ({ consensus, agentCount }) => {
+export const ConsensusBar: React.FC<ConsensusBarProps> = ({
+  consensus,
+  signals = [],
+  agentCount = 7,
+}) => {
   const agreeingCount = consensus?.agreeing_agent_count || 0;
   const totalAgents = consensus?.total_agents || agentCount || 7;
   const isReached = consensus?.consensus_reached || false;
@@ -17,94 +22,162 @@ export const ConsensusBar: React.FC<ConsensusBarProps> = ({ consensus, agentCoun
 
   return (
     <div
-      className={`border rounded-2xl p-3 sm:p-4 transition-all duration-300 shadow-xl ${
+      className={`relative overflow-hidden rounded-3xl p-4 sm:p-5 transition-all duration-300 shadow-xl border ${
         isReached
           ? direction === 'CALL'
-            ? 'bg-gradient-to-r from-emerald-950/40 via-[#0f1422] to-emerald-950/40 border-emerald-500/40 shadow-emerald-500/10'
-            : 'bg-gradient-to-r from-rose-950/40 via-[#0f1422] to-rose-950/40 border-rose-500/40 shadow-rose-500/10'
-          : 'bg-[#0f1422] border-[#1e2638]'
+            ? 'bg-gradient-to-r from-emerald-950/70 via-[#0e1622] to-emerald-950/70 border-emerald-500/60 shadow-emerald-500/20 glow-emerald'
+            : 'bg-gradient-to-r from-rose-950/70 via-[#0e1622] to-rose-950/70 border-rose-500/60 shadow-rose-500/20 glow-rose'
+          : 'bg-[#0d121e]/90 border-[#1c273e]'
       }`}
     >
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3">
-        {/* Title and Strategy info */}
-        <div className="flex items-center gap-2.5 sm:gap-3">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+        {/* Left: Engine Status & Direction */}
+        <div className="flex items-center gap-3.5">
           <div
-            className={`w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center font-bold shrink-0 ${
+            className={`w-12 h-12 rounded-2xl flex items-center justify-center font-bold shrink-0 transition-all ${
               isReached
                 ? direction === 'CALL'
-                  ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
-                  : 'bg-rose-500/20 text-rose-400 border border-rose-500/30'
-                : 'bg-slate-800 text-slate-400 border border-slate-700'
+                  ? 'bg-emerald-500/25 text-emerald-400 border border-emerald-500/40 shadow-lg shadow-emerald-500/30'
+                  : 'bg-rose-500/25 text-rose-400 border border-rose-500/40 shadow-lg shadow-rose-500/30'
+                : 'bg-[#151c2d] text-amber-400 border border-[#232f48]'
             }`}
           >
             {isReached ? (
-              direction === 'CALL' ? <ArrowUpCircle className="w-5 h-5 sm:w-6 sm:h-6" /> : <ArrowDownCircle className="w-5 h-5 sm:w-6 sm:h-6" />
+              direction === 'CALL' ? (
+                <ArrowUpCircle className="w-7 h-7 animate-bounce" />
+              ) : (
+                <ArrowDownCircle className="w-7 h-7 animate-bounce" />
+              )
             ) : (
-              <Scale className="w-4 h-4 sm:w-5 sm:h-5" />
+              <Scale className="w-6 h-6" />
             )}
           </div>
 
           <div>
             <div className="flex items-center gap-2 flex-wrap">
-              <h3 className="text-xs sm:text-sm font-bold text-white tracking-wide">
-                Consensus Engine (7/7 Unanimous Rule)
-              </h3>
+              <h2 className="text-sm sm:text-base font-extrabold text-white tracking-wide flex items-center gap-2">
+                <span>7/7 Unanimous Consensus Engine</span>
+                <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 border border-slate-700">
+                  Fixed Time Trading
+                </span>
+              </h2>
+
               {isReached ? (
-                <span className="text-[9px] sm:text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 animate-pulse">
-                  TRIGGER ACTIVE
+                <span className="text-[10px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-emerald-500 text-black shadow-md shadow-emerald-500/40 animate-pulse">
+                  ⚡ EXECUTION TRIGGERED
                 </span>
               ) : (
-                <span className="text-[9px] sm:text-[10px] font-semibold px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 border border-slate-700">
-                  SCANNING
+                <span className="text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full bg-[#172134] text-amber-400 border border-amber-500/20">
+                  MONITORING INDICATORS
                 </span>
               )}
             </div>
 
-            <p className="text-[11px] sm:text-xs text-slate-400 mt-0.5">
+            <p className="text-xs sm:text-sm text-slate-300 mt-1">
               {isReached ? (
-                <span className="font-semibold text-emerald-400">
-                  All 7 agents agreed on {direction}! Automatic 1-Minute trade triggered.
+                <span className="font-bold text-white">
+                  All 7 independent technical agents vote{' '}
+                  <strong
+                    className={
+                      direction === 'CALL' ? 'text-emerald-400' : 'text-rose-400'
+                    }
+                  >
+                    {direction}
+                  </strong>{' '}
+                  with &ge;55% confidence! Trade placed on Olymp Demo.
                 </span>
               ) : (
-                <span>
-                  Requires all 7 agents to agree with &ge;55% confidence to execute 1-min trade.
+                <span className="text-slate-400">
+                  Requires <strong>100% unanimous agreement (7/7)</strong> with &ge;55%
+                  confidence to execute high-probability 1-minute contract.
                 </span>
               )}
             </p>
           </div>
         </div>
 
-        {/* Meters */}
-        <div className="flex items-center gap-4 sm:gap-6 justify-between sm:justify-end border-t sm:border-t-0 border-[#1a2336] pt-2 sm:pt-0">
-          <div>
-            <div className="text-[9px] sm:text-[10px] uppercase font-semibold text-slate-400">
-              Agent Agreement
-            </div>
-            <div className="text-base sm:text-xl font-bold font-mono text-white">
-              <span className={agreeingCount === 7 ? 'text-emerald-400' : 'text-amber-400'}>
-                {agreeingCount}
-              </span>
-              <span className="text-slate-500 text-xs sm:text-sm"> / {totalAgents}</span>
-            </div>
+        {/* Center / Right: 7 Autonomous Agent Node Radar Badges */}
+        <div className="flex flex-wrap items-center gap-3 sm:gap-6 justify-between lg:justify-end border-t lg:border-t-0 border-[#1a2438] pt-3 lg:pt-0">
+          {/* Visual Node Radar */}
+          <div className="flex items-center gap-1.5 sm:gap-2">
+            {Array.from({ length: totalAgents }).map((_, idx) => {
+              const sig = signals[idx];
+              const isCall = sig?.direction === 'CALL';
+              const isPut = sig?.direction === 'PUT';
+              const isAgreed =
+                direction &&
+                ((direction === 'CALL' && isCall) || (direction === 'PUT' && isPut));
+
+              return (
+                <div
+                  key={idx}
+                  title={
+                    sig
+                      ? `${sig.agent_name.replace('Agent', '')}: ${sig.direction} (${Math.round(sig.confidence * 100)}%)`
+                      : `Agent #${idx + 1}`
+                  }
+                  className={`w-7 h-7 sm:w-8 sm:h-8 rounded-xl flex items-center justify-center font-mono text-[11px] font-bold border transition-all duration-300 ${
+                    isAgreed
+                      ? isCall
+                        ? 'bg-emerald-500/25 border-emerald-400 text-emerald-300 shadow-md shadow-emerald-500/30'
+                        : 'bg-rose-500/25 border-rose-400 text-rose-300 shadow-md shadow-rose-500/30'
+                      : isCall
+                      ? 'bg-emerald-950/40 border-emerald-500/30 text-emerald-400'
+                      : isPut
+                      ? 'bg-rose-950/40 border-rose-500/30 text-rose-400'
+                      : 'bg-[#121826] border-[#222e46] text-slate-500'
+                  }`}
+                >
+                  {sig ? (
+                    isCall ? '▲' : isPut ? '▼' : '—'
+                  ) : (
+                    idx + 1
+                  )}
+                </div>
+              );
+            })}
           </div>
 
-          <div>
-            <div className="text-[9px] sm:text-[10px] uppercase font-semibold text-slate-400">
-              Avg Confidence
+          {/* Agreement Metrics */}
+          <div className="flex items-center gap-4 sm:gap-6">
+            <div className="text-right">
+              <div className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">
+                Unanimous Count
+              </div>
+              <div className="text-base sm:text-xl font-black font-mono">
+                <span
+                  className={
+                    agreeingCount === 7
+                      ? 'text-emerald-400'
+                      : agreeingCount >= 4
+                      ? 'text-amber-400'
+                      : 'text-slate-300'
+                  }
+                >
+                  {agreeingCount}
+                </span>
+                <span className="text-slate-500 text-xs sm:text-sm"> / {totalAgents}</span>
+              </div>
             </div>
-            <div className="text-base sm:text-xl font-bold font-mono text-white">
-              {confidence}%
+
+            <div className="text-right">
+              <div className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">
+                Avg Confidence
+              </div>
+              <div className="text-base sm:text-xl font-black font-mono text-white">
+                {confidence}%
+              </div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Agreement Progress Bar */}
-      <div className="w-full bg-[#161c2b] rounded-full h-2.5 overflow-hidden p-0.5 border border-[#1e2638]">
+      {/* Segmented Unanimous Agreement Progress Bar */}
+      <div className="w-full bg-[#121827] rounded-full h-3 overflow-hidden p-0.5 border border-[#1e2a42] mt-3.5">
         <div
           className={`h-full rounded-full transition-all duration-500 ${
             agreeingCount === 7
-              ? 'bg-gradient-to-r from-emerald-500 to-teal-400 shadow-lg shadow-emerald-500/50'
+              ? 'bg-gradient-to-r from-emerald-500 via-teal-400 to-emerald-400 shadow-lg shadow-emerald-500/50'
               : agreeingCount >= 4
               ? 'bg-gradient-to-r from-amber-500 to-amber-400'
               : 'bg-gradient-to-r from-slate-600 to-slate-500'
